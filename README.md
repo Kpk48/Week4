@@ -3,7 +3,6 @@
 This repository contains:
 - Backend: Express API (Node.js)
 - Frontend: React (Vite)
-- Infrastructure as Code: Terraform (GCP)
 - CI/CD: GitHub Actions
 - Containerization: Optimized Dockerfiles and docker-compose for local dev
 
@@ -97,28 +96,13 @@ Dockerization
   - Backend: http://localhost:3000
   - Frontend: http://localhost:5173
 
-Terraform (GCP)
-- Root module: terraform/
-- Modules: terraform/modules/* (artifact-registry, cloud-run, monitoring, pubsub, networking, secret-manager)
-- Prereqs: gcloud auth with appropriate permissions; enable required APIs (Run, Artifact Registry, Secret Manager, Monitoring, Pub/Sub, Cloud Functions, Compute)
-- Usage:
-  1) cd terraform
-  2) Copy terraform.tfvars.example to terraform.tfvars and set values
-  3) terraform init
-  4) terraform validate
-  5) terraform plan
-  6) terraform apply
-- No secrets are hardcoded; use Secret Manager and CI variables.
-
 CI/CD (GitHub Actions)
 - Workflows in .github/workflows:
-  - app-deployment.yml: Builds, scans (Trivy), and pushes images to Artifact Registry using GitHub secrets and Workload Identity.
-  - terraform.yml: Runs fmt, init, validate, plan on PR; applies on push to main. Adds PR comments with plan.
+  - app-deployment.yml: Builds, scans (Trivy), and pushes images to Artifact Registry using GitHub Workload Identity.
 - Required GitHub secrets:
   - GCP_PROJECT_ID
   - GCP_WORKLOAD_IDP (Workload Identity Provider resource)
   - GCP_CICD_SA (email of CI/CD service account)
-  - GCP_TERRAFORM_SA (email of Terraform service account)
 
 Security
 - Services run as non-root in containers.
