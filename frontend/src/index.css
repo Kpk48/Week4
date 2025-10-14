@@ -1,0 +1,96 @@
+:root{
+  --bg:#0b1020;
+  --card:#141a2e;
+  --text:#e6eefc;
+  --muted:#9fb3d9;
+  --primary:#4f8cff;
+  --danger:#ff6b6b;
+}
+*{box-sizing:border-box}
+html,body,#root{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.container{max-width:1000px;margin:0 auto;padding:16px}
+nav{
+  background:var(--card);
+  border-bottom:1px solid #1e2540;
+  position:sticky;top:0;z-index:10
+}
+.nav-inner{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 16px}
+nav a{color:var(--text);text-decoration:none}
+nav a:hover{color:var(--primary)}
+.btn{background:var(--primary);color:white;border:none;border-radius:8px;padding:10px 14px;cursor:pointer}
+.btn.secondary{background:#27345d}
+.btn.danger{background:var(--danger)}
+.card{background:var(--card);border:1px solid #1e2540;border-radius:12px;padding:16px}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #223059;background:#0e1530;color:var(--text)}
+label{display:block;margin:8px 0 6px;color:var(--muted)}
+.form{max-width:420px;margin:24px auto}
+.help{color:var(--muted)}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#223059;color:#c6d4f7;font-size:12px}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+hr{border:0;border-top:1px solid #1e2540;margin:16px 0}
+
+
+/* Enhanced theme and UI polish */
+:root{
+  --surface:#0f1630;
+  --elev:#1a2550;
+  --border:#223063;
+  --primary-600:#3d78ef;
+  --success:#22c55e;
+  --warning:#f59e0b;
+}
+
+/* Body background effect */
+body{
+  background: radial-gradient(1200px 800px at 80% -20%, rgba(79,140,255,.08), transparent 60%), var(--bg);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+.container{max-width:1080px;padding:20px}
+
+/* Nav polish */
+nav{
+  background:linear-gradient(0deg, rgba(21,29,59,.7), rgba(21,29,59,.7));
+  backdrop-filter: blur(10px);
+}
+.nav-inner{gap:16px;padding:14px 18px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.2px}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#7aa6ff);box-shadow:0 0 12px rgba(79,140,255,.9)}
+.nav-links{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.nav-link{color:var(--text);text-decoration:none;padding:8px 10px;border-radius:8px}
+.nav-link:hover{color:#fff;background:rgba(79,140,255,.12)}
+.nav-link.active{color:#fff;background:rgba(79,140,255,.22);border:1px solid rgba(79,140,255,.35)}
+
+/* Buttons */
+.btn{border:1px solid transparent;border-radius:10px;transition:.2s box-shadow,.2s transform,.2s background,.2s border}
+.btn:hover{box-shadow:0 10px 20px rgba(79,140,255,.25);transform:translateY(-1px);background:var(--primary-600)}
+.btn:active{transform:translateY(0)}
+.btn.secondary{background:#2a3766;border-color:#34467a}
+.btn.secondary:hover{background:#34467a}
+
+/* Cards & layout */
+.card{background:linear-gradient(180deg, var(--card), var(--surface));border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,0.35)}
+.card:hover{border-color:#2b3d79}
+.grid{gap:18px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+
+/* Forms */
+input,select,textarea{padding:12px;border:1px solid var(--border);border-radius:10px;outline:none;transition:.15s border,.15s box-shadow}
+input:focus,select:focus,textarea:focus{border-color:#3c56a7;box-shadow:0 0 0 3px rgba(79,140,255,.15)}
+label{margin:10px 0 6px}
+.form{max-width:480px;margin:28px auto}
+.badge{padding:6px 10px;border:1px solid #2a3a76;background:#1a2754;color:#d9e4ff}
+hr{border-top:1px solid var(--border);margin:18px 0}
+
+/* Spinner */
+.spinner{display:inline-flex;align-items:center;gap:10px}
+.spinner-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:blink 1.4s infinite ease-in-out both}
+.spinner-dot:nth-child(2){animation-delay:.2s}
+.spinner-dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+
+/* Utility */
+.section-title{display:flex;align-items:center;justify-content:space-between;margin:8px 2px 14px}
+.card-title{margin:0 0 6px}
+.card-actions{margin-top:12px}
