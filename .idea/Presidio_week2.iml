@@ -8,5 +8,7 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module" module-name="Presidio_week3" />
+    <orderEntry type="module" module-name="my-smart-learning-app" />
   </component>
 </module>

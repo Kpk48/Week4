@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: app-deployment/backend/Dockerfile
+    image: smart-learning/backend:local
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - FRONTEND_URL=http://localhost:5173
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - app-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: app-deployment/frontend/Dockerfile
+    image: smart-learning/frontend:local
+    env_file:
+      - frontend/.env
+    ports:
+      - "5173:8080"
+    depends_on:
+      - backend
+    networks:
+      - app-net
+
+
+networks:
+  app-net:
+    driver: bridge

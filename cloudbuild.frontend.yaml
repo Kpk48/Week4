@@ -1,0 +1,43 @@
+# Cloud Build config for frontend: builds Docker image from app-deployment/frontend/Dockerfile and deploys to Cloud Run
+
+substitutions:
+  _REGION: us-central1
+  _SERVICE: smart-learning-frontend
+  _REPO: smart-learning
+  _IMAGE_NAME: frontend
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build image'
+    args:
+      [
+        'build',
+        '-f','app-deployment/frontend/Dockerfile',
+        '-t','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA',
+        '.'
+      ]
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push image'
+    args: ['push','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Deploy to Cloud Run'
+    entrypoint: gcloud
+    args:
+      [
+        'run','deploy','${_SERVICE}',
+        '--image','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA',
+        '--region','${_REGION}',
+        '--platform','managed',
+        '--allow-unauthenticated',
+        '--cpu-throttling',
+        '--min-instances','0',
+        '--max-instances','1'
+      ]
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA'

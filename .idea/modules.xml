@@ -3,6 +3,8 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/Presidio_week2.iml" filepath="$PROJECT_DIR$/.idea/Presidio_week2.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../Presidio_week3/.idea/Presidio_week3.iml" filepath="$PROJECT_DIR$/../Presidio_week3/.idea/Presidio_week3.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../my-smart-learning-app/.idea/my-smart-learning-app.iml" filepath="$PROJECT_DIR$/../my-smart-learning-app/.idea/my-smart-learning-app.iml" />
     </modules>
   </component>
 </project>

@@ -1,0 +1,37 @@
+# Global dockerignore to minimize build context and avoid leaking files
+node_modules
+**/node_modules
+npm-debug.log*
+yarn.lock
+pnpm-lock.yaml
+
+.git
+.gitignore
+.github
+.idea
+.vscode
+
+# Local envs and secrets
+.env
+.env.*
+frontend/.env
+frontend/.env.*
+
+# Build artifacts
+frontend/dist
+**/*.log
+coverage
+
+# Infra & CI (not needed in app images)
+terraform
+**/*.tfstate*
+**/.terraform*
+**/.terraform*
+
+# Docs
+**/*.md
+README.md
+
+# OS files
+.DS_Store
+Thumbs.db

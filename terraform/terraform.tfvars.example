@@ -1,0 +1,26 @@
+# Example tfvars for Smart Learning Platform
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+
+tf_state_bucket = "your-tf-state-bucket"
+tf_state_prefix = "presidio-week2/terraform/state"
+
+# Images in Artifact Registry (to be built/pushed by CI)
+image_backend  = "us-docker.pkg.dev/your-gcp-project-id/smart-learning/backend:latest"
+image_frontend = "us-docker.pkg.dev/your-gcp-project-id/smart-learning/frontend:latest"
+
+# Optional: Cloud Function source for Pub/Sub email handler
+function_source_bucket = "your-functions-source-bucket"
+function_source_object = "alerts-handler.zip"
+
+alerts_email_from = "alerts@example.com"
+alerts_email_to   = ["you@example.com"]
+
+# Optional: environment variables
+env_vars = {
+  NODE_ENV    = "production"
+  FRONTEND_URL = "https://your-frontend-url"
+}
+frontend_env_vars = {
+  VITE_API_BASE_URL = "https://your-backend-url"
+}

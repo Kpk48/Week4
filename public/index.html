@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Learning Hub - Demo Frontend</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Smart Learning Hub</h1>
+    <div id="auth-status">
+      <span id="user-info">Not logged in</span>
+      <button id="btn-logout" class="secondary" style="display:none">Logout</button>
+    </div>
+  </header>
+
+  <section class="config">
+    <label>
+      API Base URL:
+      <input id="base-url" type="text" value="" placeholder="defaults to same origin"/>
+    </label>
+    <button id="save-base-url" class="secondary">Save</button>
+  </section>
+
+  <nav class="tabs">
+    <button data-tab="auth" class="active">Auth</button>
+    <button data-tab="courses">Courses</button>
+    <button data-tab="enrollments">Enrollments</button>
+    <button data-tab="progress">Progress</button>
+    <button data-tab="users">Users</button>
+    <button data-tab="analytics">Analytics</button>
+  </nav>
+
+  <main>
+    <section id="tab-auth" class="tab active">
+      <div class="card">
+        <h2>Register</h2>
+        <div class="row">
+          <input id="reg-fullname" placeholder="Full name" />
+          <input id="reg-email" type="email" placeholder="Email" />
+          <input id="reg-password" type="password" placeholder="Password" />
+          <select id="reg-role">
+            <option value="student">student</option>
+            <option value="instructor">instructor</option>
+            <option value="admin">admin</option>
+          </select>
+          <button id="btn-register">Register</button>
+        </div>
+        <pre id="out-register" class="output"></pre>
+      </div>
+      
+      <div class="card">
+        <h2>Login</h2>
+        <div class="row">
+          <input id="login-email" type="email" placeholder="Email" />
+          <input id="login-password" type="password" placeholder="Password" />
+          <button id="btn-login">Login</button>
+        </div>
+        <pre id="out-login" class="output"></pre>
+      </div>
+
+      <div class="card">
+        <h2>Me</h2>
+        <button id="btn-me">Get Current User</button>
+        <pre id="out-me" class="output"></pre>
+      </div>
+    </section>
+
+    <section id="tab-courses" class="tab">
+      <div class="card">
+        <h2>List Courses</h2>
+        <button id="btn-list-courses">Load Courses</button>
+        <pre id="out-courses" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>Get Course by ID</h2>
+        <div class="row">
+          <input id="course-id" placeholder="Course ID" />
+          <button id="btn-get-course">Get</button>
+        </div>
+        <pre id="out-course" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>Create Course (instructor/admin)</h2>
+        <div class="row">
+          <input id="new-title" placeholder="Title" />
+          <input id="new-description" placeholder="Description" />
+          <input id="new-category" placeholder="Category" />
+          <input id="new-difficulty" placeholder="Difficulty" />
+          <input id="new-estimated" placeholder="Estimated duration" />
+          <button id="btn-create-course">Create</button>
+        </div>
+        <pre id="out-create-course" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>Update Course (owner/admin)</h2>
+        <div class="row">
+          <input id="upd-id" placeholder="Course ID" />
+          <input id="upd-title" placeholder="Title" />
+          <input id="upd-description" placeholder="Description" />
+          <input id="upd-category" placeholder="Category" />
+          <input id="upd-difficulty" placeholder="Difficulty" />
+          <input id="upd-estimated" placeholder="Estimated duration" />
+          <button id="btn-update-course">Update</button>
+        </div>
+        <pre id="out-update-course" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>Delete Course (owner/admin)</h2>
+        <div class="row">
+          <input id="del-id" placeholder="Course ID" />
+          <button id="btn-delete-course" class="danger">Delete</button>
+        </div>
+        <pre id="out-delete-course" class="output"></pre>
+      </div>
+    </section>
+
+    <section id="tab-enrollments" class="tab">
+      <div class="card">
+        <h2>My Courses</h2>
+        <button id="btn-my-enrollments">Load My Enrollments</button>
+        <pre id="out-enrollments" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>Enroll</h2>
+        <div class="row">
+          <input id="enroll-course-id" placeholder="Course ID" />
+          <button id="btn-enroll">Enroll</button>
+        </div>
+        <pre id="out-enroll" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>Unenroll</h2>
+        <div class="row">
+          <input id="unenroll-course-id" placeholder="Course ID" />
+          <button id="btn-unenroll" class="danger">Unenroll</button>
+        </div>
+        <pre id="out-unenroll" class="output"></pre>
+      </div>
+    </section>
+
+    <section id="tab-progress" class="tab">
+      <div class="card">
+        <h2>Course Progress</h2>
+        <div class="row">
+          <input id="progress-course-id" placeholder="Course ID" />
+          <button id="btn-progress-course">Get Progress</button>
+        </div>
+        <pre id="out-progress-course" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>Update Lesson Progress</h2>
+        <div class="row">
+          <input id="progress-lesson-id" placeholder="Lesson ID" />
+          <select id="progress-completed">
+            <option value="">completed? (leave blank to keep)</option>
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+          <input id="progress-time" placeholder="Time spent (minutes)" type="number" />
+          <button id="btn-progress-lesson">Update</button>
+        </div>
+        <pre id="out-progress-lesson" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>My Overall Stats</h2>
+        <button id="btn-my-stats">Get My Stats</button>
+        <pre id="out-my-stats" class="output"></pre>
+      </div>
+    </section>
+
+    <section id="tab-users" class="tab">
+      <div class="card">
+        <h2>List Users (admin/instructor)</h2>
+        <div class="row">
+          <input id="users-search" placeholder="search" />
+          <select id="users-role">
+            <option value="all">all</option>
+            <option value="student">student</option>
+            <option value="instructor">instructor</option>
+            <option value="admin">admin</option>
+          </select>
+          <input id="users-page" type="number" placeholder="page" value="1" />
+          <input id="users-limit" type="number" placeholder="limit" value="10" />
+          <button id="btn-list-users">Load Users</button>
+        </div>
+        <pre id="out-users" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>Get User</h2>
+        <div class="row">
+          <input id="user-id" placeholder="User ID" />
+          <button id="btn-get-user">Get</button>
+        </div>
+        <pre id="out-user" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>Update User (self or admin)</h2>
+        <div class="row">
+          <input id="upd-user-id" placeholder="User ID" />
+          <input id="upd-user-name" placeholder="Full name" />
+          <input id="upd-user-email" placeholder="Email" />
+          <input id="upd-user-password" placeholder="New password" type="password" />
+          <input id="upd-user-age" placeholder="Age" type="number" />
+          <input id="upd-user-guardian" placeholder="Guardian name" />
+          <input id="upd-user-guardian-contact" placeholder="Guardian contact" />
+          <input id="upd-user-specialization" placeholder="Specialization" />
+          <select id="upd-user-role">
+            <option value="">(admin only) role</option>
+            <option value="student">student</option>
+            <option value="instructor">instructor</option>
+            <option value="admin">admin</option>
+          </select>
+          <button id="btn-update-user">Update</button>
+        </div>
+        <pre id="out-update-user" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>Delete User (admin)</h2>
+        <div class="row">
+          <input id="del-user-id" placeholder="User ID" />
+          <button id="btn-delete-user" class="danger">Delete</button>
+        </div>
+        <pre id="out-delete-user" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>User Stats</h2>
+        <div class="row">
+          <input id="stats-user-id" placeholder="User ID" />
+          <button id="btn-user-stats">Get Stats</button>
+        </div>
+        <pre id="out-user-stats" class="output"></pre>
+      </div>
+    </section>
+
+    <section id="tab-analytics" class="tab">
+      <div class="card">
+        <h2>Platform Analytics (admin)</h2>
+        <button id="btn-analytics">Load</button>
+        <pre id="out-analytics" class="output"></pre>
+      </div>
+      <div class="card">
+        <h2>Instructor Analytics</h2>
+        <div class="row">
+          <input id="analytics-instructor-id" placeholder="Instructor User ID" />
+          <button id="btn-analytics-instructor">Load</button>
+        </div>
+        <pre id="out-analytics-instructor" class="output"></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Demo frontend to exercise all API endpoints. Tokens are stored in localStorage.</small>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

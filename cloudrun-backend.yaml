@@ -1,0 +1,44 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: smart-learning-backend
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "1"
+        run.googleapis.com/cpu-throttling: "true"
+        run.googleapis.com/launch-stage: "GA"
+        run.googleapis.com/client-name: "cloud-run"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      serviceAccountName: default
+      containers:
+        - image: REPLACE_WITH_ARTIFACT_REGISTRY_IMAGE
+          ports:
+            - name: http1
+              containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+            # Supply these via Cloud Run env or mount via Secret Manager
+            - name: SUPABASE_URL
+              value: ""
+            - name: SUPABASE_SERVICE_ROLE_KEY
+              value: ""
+            - name: JWT_SECRET
+              value: ""
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+      # Allow unauthenticated will be configured at deploy time in Console

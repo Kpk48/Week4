@@ -1,0 +1,21 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, Arial, sans-serif; background: #0f172a; color: #e2e8f0; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: #111827; border-bottom: 1px solid #1f2937; }
+h1 { margin: 0; font-size: 20px; }
+.config { padding: 12px 24px; background: #0b1220; border-bottom: 1px solid #1f2937; display: flex; align-items: center; gap: 8px; }
+.config input { width: 420px; max-width: 100%; }
+.tabs { display: flex; gap: 6px; padding: 12px 24px; border-bottom: 1px solid #1f2937; background: #0b1220; position: sticky; top: 0; z-index: 1; }
+.tabs button { background: #1f2937; color: #e5e7eb; border: 1px solid #374151; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.tabs button.active { background: #2563eb; border-color: #2563eb; }
+main { padding: 24px; display: grid; gap: 16px; }
+.tab { display: none; }
+.tab.active { display: block; }
+.card { background: #0b1220; border: 1px solid #1f2937; border-radius: 8px; padding: 16px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+input, select { background: #0f172a; color: #e2e8f0; border: 1px solid #334155; padding: 8px 10px; border-radius: 6px; }
+button { background: #2563eb; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+button.secondary { background: #6b7280; }
+button.danger { background: #dc2626; }
+.output { background: #0f172a; border: 1px solid #1f2937; border-radius: 6px; padding: 10px; max-height: 320px; overflow: auto; white-space: pre-wrap; }
+footer { padding: 16px 24px; color: #94a3b8; border-top: 1px solid #1f2937; }
+#auth-status { display: flex; gap: 12px; align-items: center; }
