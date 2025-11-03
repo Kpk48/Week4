@@ -19,8 +19,8 @@ jobs:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       AR_LOCATION: us
       REPO_ID: smart-learning
-      BACKEND_IMAGE: us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/smart-learning/backend:${{ github.sha }}
-      FRONTEND_IMAGE: us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/smart-learning/frontend:${{ github.sha }}
+      BACKEND_IMAGE: ${{ secrets.GCP_PROJECT_ID != '' && format('us-docker.pkg.dev/{0}/smart-learning/backend:{1}', secrets.GCP_PROJECT_ID, github.sha) || format('backend:{0}', github.sha) }}
+      FRONTEND_IMAGE: ${{ secrets.GCP_PROJECT_ID != '' && format('us-docker.pkg.dev/{0}/smart-learning/frontend:{1}', secrets.GCP_PROJECT_ID, github.sha) || format('frontend:{0}', github.sha) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,6 +32,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Authenticate to Google Cloud
+        if: github.event_name == 'push' && secrets.GCP_PROJECT_ID != '' && secrets.GCP_WORKLOAD_IDP != '' && secrets.GCP_CICD_SA != ''
         uses: google-github-actions/auth@v2
         env:
           GOOGLE_CREDENTIALS: ''
@@ -41,9 +42,11 @@ jobs:
           service_account: ${{ secrets.GCP_CICD_SA }}
 
       - name: Configure gcloud
+        if: github.event_name == 'push' && secrets.GCP_PROJECT_ID != '' && secrets.GCP_WORKLOAD_IDP != '' && secrets.GCP_CICD_SA != ''
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Configure Docker to use gcloud as a credential helper
+        if: github.event_name == 'push' && secrets.GCP_PROJECT_ID != '' && secrets.GCP_WORKLOAD_IDP != '' && secrets.GCP_CICD_SA != ''
         run: gcloud auth configure-docker us-docker.pkg.dev --quiet
 
       - name: Build backend image
@@ -83,7 +86,7 @@ jobs:
         continue-on-error: false
 
       - name: Push backend image
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && secrets.GCP_PROJECT_ID != '' && secrets.GCP_WORKLOAD_IDP != '' && secrets.GCP_CICD_SA != ''
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -92,7 +95,7 @@ jobs:
           tags: ${{ env.BACKEND_IMAGE }}
 
       - name: Push frontend image
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && secrets.GCP_PROJECT_ID != '' && secrets.GCP_WORKLOAD_IDP != '' && secrets.GCP_CICD_SA != ''
         uses: docker/build-push-action@v6
         with:
           context: .

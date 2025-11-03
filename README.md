@@ -103,6 +103,10 @@ CI/CD (GitHub Actions)
   - GCP_PROJECT_ID
   - GCP_WORKLOAD_IDP (Workload Identity Provider resource)
   - GCP_CICD_SA (email of CI/CD service account)
+- Notes:
+  - Pull requests from forks do not receive repository secrets by default. In that case, the workflow will skip Google Cloud authentication and pushing images, but it will still build and scan images using local tags.
+  - To enable deployments from CI, push from a branch in this repository (not a fork) or manually run the workflow with the required secrets configured.
+  - Make sure your GCP Workload Identity Federation pool/provider and the service account trust the GitHub OIDC issuer for this repo. Then set the three secrets above in the repo settings.
 
 Security
 - Services run as non-root in containers.
