@@ -1,4 +1,6 @@
 # Backend Dockerfile - Multi-stage, minimal, non-root
+# IMPORTANT: Build context must be the repository root (contains package.json next to server.js)
+# If you build from a subdirectory (like app-deployment/backend), Docker will not find package*.json.
 # Stage 1: Build dependencies
 FROM node:20-alpine AS deps
 WORKDIR /app

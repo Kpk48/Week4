@@ -1,36 +1,19 @@
-# Global dockerignore to minimize build context and avoid leaking files
+# Global Docker ignore to keep context small and avoid missing files issues
+# IMPORTANT: Build context must be the repository root for backend Dockerfile
+
+# Node
 node_modules
-**/node_modules
 npm-debug.log*
 yarn.lock
 pnpm-lock.yaml
 
+# Frontend build artifacts
+frontend/node_modules
+frontend/dist
+
+# VCS
 .git
 .gitignore
-.github
-.idea
-.vscode
-
-# Local envs and secrets
-.env
-.env.*
-frontend/.env
-frontend/.env.*
-
-# Build artifacts
-frontend/dist
-**/*.log
-coverage
-
-# Infra & CI (not needed in app images)
-terraform
-**/*.tfstate*
-**/.terraform*
-**/.terraform*
-
-# Docs
-**/*.md
-README.md
 
 # OS files
 .DS_Store
