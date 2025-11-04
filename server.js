@@ -93,6 +93,7 @@ app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/users', userRoutes);           // NEW
 app.use('/api/analytics', analyticsRoutes);   // NEW
+app.use('/api/ai', require('./routes/ai'));   // AI endpoints
 
 // Error handling middleware
 app.use((err, req, res, next) => {

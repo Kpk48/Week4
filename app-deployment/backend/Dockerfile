@@ -20,6 +20,7 @@ COPY middleware ./middleware
 COPY public ./public
 COPY config ./config
 COPY jwtkey.js ./jwtkey.js
+COPY ai ./ai
 # Optional: Include frontend build if baked in image (compose will build separately too)
 # We keep ability to serve built assets if present
 COPY frontend/package.json ./frontend/package.json

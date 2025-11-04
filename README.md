@@ -117,6 +117,8 @@ Security
 Architecture Overview
 - Frontend (Vite) built and served via Nginx container in Cloud Run.
 - Backend (Express) container in Cloud Run exposes /health and /api routes and can serve SPA if desired.
+- New AI capabilities: RAG pipeline with local vector store (or bring-your-own Pinecone/Weaviate), Embeddings via OpenAI (with offline fallback), and endpoints for chat, summarization, and sentiment.
+- Security layers for AI endpoints: API key gate, rate limiting, payload size limits, prompt-injection guard, and PII-safe logging guidance.
 - Container images stored in Artifact Registry.
 - Monitoring alerts configured for CPU, memory, latency, and error rate; notifications via email and Pub/Sub function hook.
 - Optional VPC, firewall, and Cloud NAT provided.
@@ -170,3 +172,115 @@ Notes
 - Optional Cloud Run service manifests are provided (cloudrun-backend.yaml, cloudrun-frontend.yaml) if you prefer "gcloud run services replace -f <file>".
 - The backend can also serve the built SPA if you choose to bake frontend/dist into the backend image, but our default deploy uses separate services.
 - Store secrets in Secret Manager and expose via Cloud Run env vars or secret mounts. Make sure not to commit secrets to the repo.
+
+
+AI/RAG Capabilities
+Overview
+- New endpoints under /api/ai add retrieval-augmented generation (RAG), summarization, and sentiment analysis.
+- Vector store options: local JSON store by default (RAG_STORE=local). You can later wire Pinecone or Weaviate by adding adapters.
+- Embeddings via OpenAI (recommended) with an offline hashing fallback to enable local testing without keys.
+- Security: API key gate (optional), rate limiting, payload limits, and prompt-injection guard.
+
+Endpoints
+- POST /api/ai/ingest
+  Purpose: Load documents into the vector store (chunk + embed + upsert).
+  Body JSON:
+  {
+    "texts": ["plain text..."],
+    "urls": ["https://example.com/docs"],
+    "md": ["# markdown ..."],
+    "namespace": "my-collection",         // optional; default "default"
+    "metadata": { "courseId": 123 },      // optional
+    "chunk": { "size": 800, "overlap": 80 } // optional
+  }
+  Response: { ok: true, chunks: <num>, upserted: <num>, namespace: "..." }
+
+- POST /api/ai/chat
+  Purpose: Chat assistant that answers strictly from retrieved context.
+  Body JSON:
+  { "query": "What is X?", "namespace": "my-collection", "topK": 5, "filter": {"courseId": 123} }
+  Response: { answer: "...", contexts: [ { text, score, meta, ... } ] }
+
+- POST /api/ai/summarize
+  Body JSON: { "text": "large text..." }
+  Response: { summary: "..." }
+
+- POST /api/ai/sentiment
+  Body JSON: { "text": "I love this course!" }
+  Response: { sentiment: { label: "positive|negative|neutral", score: -1..1, raw?: "LLM output" } }
+
+Environment variables
+- AI_PROVIDER: auto | gemini | openai (default: auto). Determines which LLM/embeddings to use.
+- GEMINI_API_KEY: Optional. If set (and AI_PROVIDER=gemini or auto), uses Google Gemini for chat/summarize/sentiment and embeddings.
+- GEMINI_MODEL: Optional. Default gemini-1.5-flash.
+- GEMINI_EMBEDDING_MODEL: Optional. Default text-embedding-004.
+- OPENAI_API_KEY: Optional. If set (and AI_PROVIDER=openai or auto), uses OpenAI for chat/summarize/sentiment and embeddings.
+- OPENAI_MODEL: Optional. Default gpt-4o-mini.
+- OPENAI_EMBEDDING_MODEL: Optional. Default text-embedding-3-small.
+- RAG_STORE: local | pinecone | weaviate (default: local). pinecone/weaviate currently require adding adapters described below.
+- AI_API_KEY: Optional. If set, AI endpoints require Authorization: Bearer <AI_API_KEY>.
+- AI_RATE_LIMIT_MAX: Optional. Requests per minute per IP for AI routes. Default 30.
+
+Security in AI
+- Data privacy: Do not send secrets or PII to LLMs unnecessarily. Use Secret Manager in production. Disable logs of request bodies or ensure redaction.
+- Prompt injection: Basic guard rejects suspicious phrases ("ignore previous", "reveal prompt", etc.). Keep temperature low and include a system policy (implemented in RAG prompt).
+- Access control: Use AI_API_KEY to restrict the AI routes, or front them with your auth middleware. Consider per-user quotas tied to JWT.
+- Payload limits & rate limiting: Enforced via sizeGuard and express-rate-limit.
+
+Local vector store (default)
+- Stored in ./data/vectorstore.json in the container/host.
+- Namespaces: Use namespace to isolate content per course, tenant, or environment.
+- Filtering: Pass a filter object to /chat to restrict matches by metadata (exact match).
+
+How to use (step-by-step)
+1) Configure env (dev):
+   - In .env (do not commit real keys), add as needed:
+     OPENAI_API_KEY=sk-... (optional)
+     OPENAI_MODEL=gpt-4o-mini (optional)
+     OPENAI_EMBEDDING_MODEL=text-embedding-3-small (optional)
+     RAG_STORE=local
+     AI_API_KEY=your-ai-route-key (optional)
+     AI_RATE_LIMIT_MAX=30
+2) Start backend: npm run dev (port 3000).
+3) Ingest your docs:
+   curl -X POST http://localhost:3000/api/ai/ingest \
+     -H "Content-Type: application/json" \
+     -d '{
+           "texts": ["This platform teaches calculus and algebra."],
+           "urls": ["https://example.com/policies"],
+           "namespace": "docs",
+           "metadata": {"courseId": 1}
+         }'
+   If AI_API_KEY is set, include: -H "Authorization: Bearer YOUR_KEY"
+4) Ask questions:
+   curl -X POST http://localhost:3000/api/ai/chat \
+     -H "Content-Type: application/json" \
+     -d '{"query":"What does the platform teach?","namespace":"docs","topK":3}'
+5) Summarize:
+   curl -X POST http://localhost:3000/api/ai/summarize \
+     -H "Content-Type: application/json" \
+     -d '{"text":"Your long text here ..."}'
+6) Sentiment:
+   curl -X POST http://localhost:3000/api/ai/sentiment \
+     -H "Content-Type: application/json" \
+     -d '{"text":"I love this course!"}'
+
+Cloud Run / Docker notes
+- No Dockerfile changes required besides copying ./ai (already added). npm ci installs express-rate-limit.
+- For persistence, mount /app/data to a writable volume if you want vector store to survive revisions.
+- In production, set AI_API_KEY and rate limits. Also bind your own auth (JWT) before AI routes if required.
+
+Optional: Bring your own vector DB
+- Pinecone: set RAG_STORE=pinecone and implement ai/vectorstores/pinecone.js using @pinecone-database/pinecone. Provide env: PINECONE_API_KEY, PINECONE_INDEX, PINECONE_ENV.
+- Weaviate: set RAG_STORE=weaviate and implement ai/vectorstores/weaviate.js using weaviate-ts-client. Provide WEAVIATE_URL, WEAVIATE_API_KEY.
+  The current code will throw a helpful error if you select these without providing adapters.
+
+Frontend integration (high-level)
+- Chat widget: issue POST /api/ai/chat with the user’s question and display the answer along with source snippets (contexts).
+- Summarizer: send selected content to /api/ai/summarize and render the bullet points.
+- Sentiment: send feedback text to /api/ai/sentiment to color-code feedback or route moderation.
+
+Compliance tips
+- Log minimal metadata (timestamps, namespace, counts). Avoid logging raw prompts/LLM outputs in production.
+- Rotate OPENAI_API_KEY regularly. Store secrets in Secret Manager on GCP and reference them in Cloud Run env.
+- Consider tenant isolation via namespaces and additional metadata filters to avoid cross-tenant leakage.

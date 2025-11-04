@@ -1,0 +1,46 @@
+# Root Cloud Build configuration to build and deploy the backend with the correct Docker build context (repo root)
+# Use this in Google Cloud Console by choosing: Build configuration = Cloud Build configuration file (yaml)
+# and file path = cloudbuild.yaml (this avoids the 4 KB context issue causing COPY package*.json to fail).
+
+substitutions:
+  _REGION: us-central1
+  _SERVICE: smart-learning-backend
+  _REPO: smart-learning
+  _IMAGE_NAME: backend
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build image'
+    args:
+      [
+        'build',
+        '-f','app-deployment/backend/Dockerfile',
+        '-t','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA',
+        '.'
+      ]
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push image'
+    args: ['push','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Deploy to Cloud Run'
+    entrypoint: gcloud
+    args:
+      [
+        'run','deploy','${_SERVICE}',
+        '--image','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA',
+        '--region','${_REGION}',
+        '--platform','managed',
+        '--allow-unauthenticated',
+        '--cpu-throttling',
+        '--min-instances','0',
+        '--max-instances','1',
+        '--set-env-vars','NODE_ENV=production,PORT=3000'
+      ]
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA'
