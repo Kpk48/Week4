@@ -5,6 +5,7 @@ substitutions:
   _SERVICE: smart-learning-frontend
   _REPO: smart-learning
   _IMAGE_NAME: frontend
+  _API_BASE_URL: ""  # Set to backend Cloud Run URL when triggering (e.g., https://smart-learning-backend-xxxxx-uc.a.run.app)
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -16,6 +17,7 @@ steps:
       [
         'build',
         '-f','app-deployment/frontend/Dockerfile',
+        '--build-arg','VITE_API_BASE_URL=${_API_BASE_URL}',
         '-t','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA',
         '.'
       ]

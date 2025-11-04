@@ -1,0 +1,150 @@
+# Cloud Build pipeline to build and deploy BOTH backend and frontend to Cloud Run in one trigger
+# Usage:
+# - Create a Cloud Build Trigger in GCP Console that points to this file (Repository file: cloudbuild.full.yaml)
+# - Set substitutions as needed (see the substitutions block below and README instructions)
+#
+# What it does:
+# 1) Build and push backend image
+# 2) Deploy backend to Cloud Run (with env vars and optional Secret Manager refs)
+# 3) Read backend URL and bake it into the frontend build as VITE_API_BASE_URL
+# 4) Build and push frontend image
+# 5) Deploy frontend to Cloud Run
+# 6) Update backend FRONTEND_URL env var for CORS
+
+substitutions:
+  _REGION: us-central1
+  _REPO: smart-learning
+  _BACKEND_SERVICE: smart-learning-backend
+  _FRONTEND_SERVICE: smart-learning-frontend
+  _BACKEND_IMAGE_NAME: backend
+  _FRONTEND_IMAGE_NAME: frontend
+  # If you want the backend to reference secrets from Secret Manager, provide their names below.
+  # Leave empty to skip --set-secrets (env vars can still be configured on the service later).
+  _SUPABASE_URL_SECRET: ""
+  _SUPABASE_SERVICE_ROLE_KEY_SECRET: ""
+  _JWT_SECRET_SECRET: ""
+  _GEMINI_API_KEY_SECRET: ""  # optional
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # Ensure Artifact Registry repo exists (required before pushing images)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Ensure Artifact Registry repo'
+    entrypoint: bash
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        if ! gcloud artifacts repositories describe "${_REPO}" --location="${_REGION}" >/dev/null 2>&1; then
+          gcloud artifacts repositories create "${_REPO}" \
+            --repository-format=docker \
+            --location="${_REGION}" \
+            --description="App images for Smart Learning"
+        fi
+
+  # Build backend
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build backend image'
+    args: [
+      'build',
+      '-f','app-deployment/backend/Dockerfile',
+      '-t','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_BACKEND_IMAGE_NAME}:$SHORT_SHA',
+      '.'
+    ]
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push backend image'
+    args: ['push','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_BACKEND_IMAGE_NAME}:$SHORT_SHA']
+
+  # Deploy backend
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Deploy backend to Cloud Run'
+    entrypoint: bash
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_BACKEND_IMAGE_NAME}:$SHORT_SHA"
+        BASE_ENV="NODE_ENV=production"
+        SET_SECRETS=""
+        if [ -n "${_SUPABASE_URL_SECRET}" ] && [ -n "${_SUPABASE_SERVICE_ROLE_KEY_SECRET}" ] && [ -n "${_JWT_SECRET_SECRET}" ]; then
+          SET_SECRETS="--set-secrets=SUPABASE_URL=${_SUPABASE_URL_SECRET}:latest,SUPABASE_SERVICE_ROLE_KEY=${_SUPABASE_SERVICE_ROLE_KEY_SECRET}:latest,JWT_SECRET=${_JWT_SECRET_SECRET}:latest"
+          if [ -n "${_GEMINI_API_KEY_SECRET}" ]; then
+            SET_SECRETS="${SET_SECRETS},GEMINI_API_KEY=${_GEMINI_API_KEY_SECRET}:latest"
+          fi
+        fi
+        gcloud run deploy "${_BACKEND_SERVICE}" \
+          --image="$IMAGE" \
+          --region="${_REGION}" \
+          --platform=managed \
+          --allow-unauthenticated \
+          --port=3000 \
+          --min-instances=0 \
+          --max-instances=1 \
+          --cpu-throttling \
+          --set-env-vars="$BASE_ENV" \
+          ${SET_SECRETS}
+
+  # Save backend URL to workspace for later steps
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Read backend URL'
+    entrypoint: bash
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        gcloud run services describe "${_BACKEND_SERVICE}" --region="${_REGION}" --format=value(status.url) > /workspace/BACKEND_URL.txt
+        echo "Backend URL: $(cat /workspace/BACKEND_URL.txt)"
+
+  # Build frontend with baked API base URL (from file)
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build frontend image'
+    entrypoint: bash
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        BACKEND_URL=$(cat /workspace/BACKEND_URL.txt)
+        docker build \
+          -f app-deployment/frontend/Dockerfile \
+          --build-arg VITE_API_BASE_URL="$BACKEND_URL" \
+          -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_FRONTEND_IMAGE_NAME}:$SHORT_SHA \
+          .
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push frontend image'
+    args: ['push','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_FRONTEND_IMAGE_NAME}:$SHORT_SHA']
+
+  # Deploy frontend
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Deploy frontend to Cloud Run'
+    entrypoint: gcloud
+    args: [
+      'run','deploy','${_FRONTEND_SERVICE}',
+      '--image','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_FRONTEND_IMAGE_NAME}:$SHORT_SHA',
+      '--region','${_REGION}',
+      '--platform','managed',
+      '--allow-unauthenticated',
+      '--cpu-throttling',
+      '--min-instances','0',
+      '--max-instances','1',
+      '--port','8080'
+    ]
+
+  # Update backend FRONTEND_URL for CORS
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Update backend FRONTEND_URL'
+    entrypoint: bash
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        FRONTEND_URL=$(gcloud run services describe "${_FRONTEND_SERVICE}" --region="${_REGION}" --format=value(status.url))
+        echo "Frontend URL: $FRONTEND_URL"
+        gcloud run services update "${_BACKEND_SERVICE}" --region="${_REGION}" --set-env-vars=FRONTEND_URL="$FRONTEND_URL"
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_BACKEND_IMAGE_NAME}:$SHORT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_FRONTEND_IMAGE_NAME}:$SHORT_SHA'

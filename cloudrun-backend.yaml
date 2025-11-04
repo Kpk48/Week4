@@ -24,8 +24,6 @@ spec:
           env:
             - name: NODE_ENV
               value: production
-            - name: PORT
-              value: "3000"
             # Supply these via Cloud Run env or mount via Secret Manager
             - name: SUPABASE_URL
               value: ""

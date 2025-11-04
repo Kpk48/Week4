@@ -1,0 +1,64 @@
+# Cloud Build config: Single-service (Unified) deploy of API + Frontend in one container
+# This builds the backend image (which also builds and bundles the frontend dist during the Docker build)
+# and deploys a single Cloud Run service. The Express server serves the built SPA and the API on the same URL.
+
+substitutions:
+  _REGION: us-central1
+  _SERVICE: smart-learning-app
+  _REPO: smart-learning
+  _IMAGE_NAME: app
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Ensure Artifact Registry repo'
+    entrypoint: bash
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        if ! gcloud artifacts repositories describe "${_REPO}" --location="${_REGION}" >/dev/null 2>&1; then
+          gcloud artifacts repositories create "${_REPO}" \
+            --repository-format=docker \
+            --location="${_REGION}" \
+            --description="Unified app images"
+        fi
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build unified image'
+    args:
+      [
+        'build',
+        '-f','app-deployment/backend/Dockerfile',
+        # Optional: bake API base for SPA (frontend uses relative /api by default when served by Express),
+        # but you can pass a value here if you need to override.
+        # '--build-arg','VITE_API_BASE_URL=${_API_BASE_URL}',
+        '-t','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA',
+        '.'
+      ]
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push image'
+    args: ['push','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Deploy unified service'
+    entrypoint: gcloud
+    args:
+      [
+        'run','deploy','${_SERVICE}',
+        '--image','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA',
+        '--region','${_REGION}',
+        '--platform','managed',
+        '--allow-unauthenticated',
+        '--cpu-throttling',
+        '--min-instances','0',
+        '--max-instances','1',
+        '--port','3000',
+        '--set-env-vars','NODE_ENV=production'
+      ]
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA'

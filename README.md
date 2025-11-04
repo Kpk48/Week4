@@ -146,10 +146,10 @@ Service 1: Backend (Express API)
 12. Container port: 3000. Health path: /health (optional).
 13. Environment variables:
     - NODE_ENV=production
-    - PORT=3000
     - SUPABASE_URL=...
     - SUPABASE_SERVICE_ROLE_KEY=...
     - JWT_SECRET=...
+    Note: Do not set PORT in Cloud Run; it is injected automatically by the platform.
 14. Click CREATE.
 
 Service 2: Frontend (Vite build served by Nginx)
@@ -284,3 +284,194 @@ Compliance tips
 - Log minimal metadata (timestamps, namespace, counts). Avoid logging raw prompts/LLM outputs in production.
 - Rotate OPENAI_API_KEY regularly. Store secrets in Secret Manager on GCP and reference them in Cloud Run env.
 - Consider tenant isolation via namespaces and additional metadata filters to avoid cross-tenant leakage.
+
+
+
+## One-command deploy to GCP (scripts)
+This repository now includes ready-to-run scripts to deploy both backend and frontend to Cloud Run in your GCP project. They build Docker images locally, push to Artifact Registry, deploy the services, and wire CORS automatically by setting FRONTEND_URL on the backend.
+
+Supported environments:
+- Windows PowerShell: scripts\gcp-deploy.ps1
+- Linux/macOS/Cloud Shell (bash): scripts/gcp-deploy.sh
+
+Prerequisites
+- Installed locally: Google Cloud CLI (gcloud) and Docker Desktop (running).
+- A Google Cloud project with billing enabled.
+- You are signed in to gcloud: gcloud auth login
+- Optional but recommended: create secrets in Secret Manager or let the script create them from your current environment.
+
+Environment you should have available (do not commit secrets):
+- SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET
+- Optional AI: AI_PROVIDER, GEMINI_API_KEY, GEMINI_MODEL, GEMINI_EMBEDDING_MODEL, OPENAI_API_KEY, OPENAI_MODEL, OPENAI_EMBEDDING_MODEL
+
+Windows PowerShell usage
+
+```powershell
+# From repo root
+# Plain env vars deployment (reads values from your current environment)
+$env:SUPABASE_URL="https://YOUR.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY"
+$env:JWT_SECRET="YOUR_RANDOM_SECRET"
+# Optional AI
+$env:AI_PROVIDER="gemini"; $env:GEMINI_API_KEY="YOUR_GEMINI_KEY"
+
+# Deploy (replace with your project id; region defaults to us-central1)
+./scripts/gcp-deploy.ps1 -PROJECT_ID "YOUR_PROJECT_ID"
+
+# Or: use Secret Manager (script will upsert secrets from your env and deploy with --set-secrets)
+./scripts/gcp-deploy.ps1 -PROJECT_ID "YOUR_PROJECT_ID" -UseSecrets
+```
+
+Bash (Linux/macOS/Cloud Shell) usage
+
+```bash
+# From repo root
+export SUPABASE_URL="https://YOUR.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY"
+export JWT_SECRET="YOUR_RANDOM_SECRET"
+# Optional AI
+export AI_PROVIDER=gemini
+export GEMINI_API_KEY="YOUR_GEMINI_KEY"
+
+# Plain env deployment
+./scripts/gcp-deploy.sh YOUR_PROJECT_ID
+
+# Or deploy with Secret Manager (upserts from your env)
+USE_SECRETS=1 ./scripts/gcp-deploy.sh YOUR_PROJECT_ID
+```
+
+What the scripts do
+- Enable required APIs: Cloud Run, Cloud Build, Artifact Registry, Secret Manager
+- Ensure an Artifact Registry repo (default name: smart-learning) exists in your region (default: us-central1)
+- docker build backend and frontend using the correct Dockerfiles with the repository root as context
+- Push images to ${REGION}-docker.pkg.dev/PROJECT_ID/smart-learning/{backend|frontend}:manual
+- Deploy frontend first to Cloud Run (port 8080), then read its URL
+- Deploy backend (port 3000) with NODE_ENV=production and FRONTEND_URL=<frontend-url>
+  Note: Do not set PORT in Cloud Run; it is provided automatically.
+- If USE_SECRETS/-UseSecrets is set: upsert your env values into Secret Manager and deploy with --set-secrets
+
+Result
+- Two Cloud Run services:
+  - smart-learning-frontend → public URL serving the SPA
+  - smart-learning-backend → public API; GET /health for status
+- Backend CORS is configured to allow the frontend URL.
+
+Notes and troubleshooting
+- If Docker build fails with COPY package*.json, ensure the build context is the repository root. The scripts already do this.
+- Make sure Docker Desktop is running and you are authenticated to gcloud.
+- PowerShell tip: when manually running gcloud describe commands that use --format=value(status.url), wrap the format in quotes to avoid PS parsing errors, e.g., --format="value(status.url)".
+- Secret access: if you use Secret Manager, ensure the runtime service account has roles/secretmanager.secretAccessor for referenced secrets.
+- Costs: keep min instances 0 and max 1; region us-central1 to leverage free tier.
+
+---
+
+
+## Deploy both services via a single Cloud Build trigger (from your GitHub repo)
+This repo includes cloudbuild.full.yaml which builds and deploys the backend and frontend to Cloud Run in one pipeline. Use this if you want a single trigger to handle both services consistently and wire the frontend to the backend automatically.
+
+Prerequisites
+- Enable APIs in your GCP project: Cloud Run, Cloud Build, Artifact Registry, Secret Manager
+- Connect your GitHub repo to Cloud Build (Console will prompt you via the GitHub App)
+- Region: us-central1 (free-tier friendly)
+- Artifact Registry: the pipeline ensures the repository exists (default name smart-learning)
+
+Steps
+1) Open Google Cloud Console → Cloud Build → Triggers → Create Trigger
+2) Repository: select your GitHub repo and branch (e.g., main)
+3) Event: Push to a branch (or manual)
+4) Build configuration: Cloud Build configuration file (yaml/json)
+5) File: cloudbuild.full.yaml
+6) Substitutions (optional; defaults shown below):
+   - _REGION=us-central1
+   - _REPO=smart-learning
+   - _BACKEND_SERVICE=smart-learning-backend
+   - _FRONTEND_SERVICE=smart-learning-frontend
+   - Optional Secret Manager secret names to inject into backend at deploy time:
+     - _SUPABASE_URL_SECRET=SUPABASE_URL
+     - _SUPABASE_SERVICE_ROLE_KEY_SECRET=SUPABASE_SERVICE_ROLE_KEY
+     - _JWT_SECRET_SECRET=JWT_SECRET
+     - _GEMINI_API_KEY_SECRET=GEMINI_API_KEY (optional)
+
+What the trigger does
+- Builds and pushes backend image from app-deployment/backend/Dockerfile
+- Deploys backend to Cloud Run (port 3000, unauthenticated, min 0 / max 1, CPU during request)
+  - If you provided secret names above, it deploys with --set-secrets mapping to those names (latest versions)
+- Reads the backend Cloud Run URL and bakes it into the frontend build as VITE_API_BASE_URL
+- Builds and pushes the frontend image from app-deployment/frontend/Dockerfile
+- Deploys frontend to Cloud Run (port 8080, unauthenticated, min 0 / max 1, CPU during request)
+- Updates backend FRONTEND_URL to the deployed frontend URL (for CORS)
+
+Secret setup (recommended)
+- Create these secrets once in Secret Manager (Console → Security → Secret Manager → Create secret):
+  - SUPABASE_URL
+  - SUPABASE_SERVICE_ROLE_KEY
+  - JWT_SECRET
+  - (Optional) GEMINI_API_KEY
+- In the trigger’s substitutions, set the _*_SECRET names to match the secret IDs above. The pipeline references :latest versions.
+- Ensure your Cloud Run runtime service account has roles/secretmanager.secretAccessor on these secrets.
+
+Verification
+- After trigger completes, in Cloud Run you should see two services:
+  - smart-learning-backend → test GET /health
+  - smart-learning-frontend → open the URL; the SPA will call the backend via the baked API base URL
+- CORS is auto-wired by setting FRONTEND_URL on the backend.
+
+Troubleshooting
+- COPY package*.json error during backend build: the pipeline builds from repo root (.), so this should not occur. If it does, ensure the Dockerfile path is correct.
+- Image push errors: confirm Artifact Registry repo exists in the chosen region; the pipeline creates it if missing.
+- Secrets access denied: grant Secret Manager Secret Accessor to the Cloud Run runtime service account.
+- Frontend 405s when calling /api: make sure you use cloudbuild.full.yaml (it bakes VITE_API_BASE_URL) or configure VITE_API_BASE_URL in your own builds.
+
+
+
+## Single-service deployment (Unified API + Frontend)
+You can run the entire app (Express API + React SPA) as ONE Cloud Run service. The backend image now builds the frontend and serves it from `frontend/dist` via Express.
+
+What changed
+- Backend Dockerfile (app-deployment/backend/Dockerfile) now:
+  - Builds the frontend (Vite) during the Docker build.
+  - Copies the built assets into the image at `/app/frontend/dist`.
+  - Runs the Express server on port 3000 to serve both the API and the SPA with fallback routing.
+- New Cloud Build file `cloudbuild.unified.yaml` builds and deploys a single Cloud Run service.
+
+Why this is nice
+- One URL for both frontend and backend.
+- No CORS wiring required (the SPA calls relative `/api/...`).
+- Fewer services to manage and lower cost/complexity.
+
+Local usage (unchanged)
+- Dev mode remains the same (Vite + API):
+  - Terminal A: `npm run dev` (backend at http://localhost:3000)
+  - Terminal B: `cd frontend && npm run dev` (frontend at http://localhost:5173)
+- Production-like: `npm run start:prod` (builds frontend, serves via Express on http://localhost:3000)
+
+Deploy via Google Cloud Console (single service)
+1) Open Cloud Run → Create service → "Continuously deploy from a repository (source or function)" → Set up with Cloud Build.
+2) Select your repo/branch.
+3) Build type: Dockerfile.
+4) Dockerfile path: `app-deployment/backend/Dockerfile` (this builds the SPA too).
+5) Service name: `smart-learning-app` (or your choice).
+6) Region: `us-central1`. Authentication: Allow unauthenticated. Autoscaling: Min 0, Max 1. CPU: Only during request.
+7) Container port: `3000`.
+8) Variables & Secrets:
+   - Env vars: `NODE_ENV=production`.
+   - Secrets via Secret Manager (recommended): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET` (and optionally `GEMINI_API_KEY`).
+   - Do NOT set `PORT` (Cloud Run injects it).
+9) Create. The single service URL serves both the SPA and API.
+
+Deploy via Cloud Build trigger (single service)
+- Create a Cloud Build Trigger using file: `cloudbuild.unified.yaml`.
+- Optional substitutions: `_REGION`, `_SERVICE`, `_REPO`, `_IMAGE_NAME` (defaults are fine).
+- The pipeline:
+  - Ensures Artifact Registry repo exists.
+  - Builds the unified image (backend + SPA) from `app-deployment/backend/Dockerfile`.
+  - Deploys one Cloud Run service on port 3000 with `NODE_ENV=production`.
+
+Frontend API base
+- When served by Express (single-service), the frontend can call relative paths (e.g., `fetch('/api/...')`).
+- The build also accepts `VITE_API_BASE_URL` arg if you ever need to hardcode an external API, but this is not required in unified mode.
+
+Notes
+- Secrets: Use Secret Manager in production. Grant the service's runtime SA `roles/secretmanager.secretAccessor` on each secret.
+- Health: Backend exposes `GET /health`. Cloud Run port must be set to 3000.
+- Existing two-service deployment still works; this adds a simpler alternative.

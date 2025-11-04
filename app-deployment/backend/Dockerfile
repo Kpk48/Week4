@@ -1,19 +1,32 @@
-# Backend Dockerfile - Multi-stage, minimal, non-root
+# Backend Dockerfile - Unified API + Frontend (SPA) image, multi-stage, minimal, non-root
 # IMPORTANT: Build context must be the repository root (contains package.json next to server.js)
 # If you build from a subdirectory (like app-deployment/backend), Docker will not find package*.json.
-# Stage 1: Build dependencies
+
+# Stage 1: Install backend production deps
 FROM node:20-alpine AS deps
 WORKDIR /app
-# Install dependencies only (leverage Docker layer cache)
 COPY package*.json ./
-RUN npm ci --only=production
+# Prefer reproducible ci; fall back to install if lockfile drift
+RUN npm ci --only=production || npm install --omit=dev
 
-# Stage 2: Copy source (no dev deps) and prune
+# Stage 2: Build frontend (Vite)
+FROM node:20-alpine AS web
+WORKDIR /web
+# Allow passing backend API base at build-time for the SPA
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+COPY frontend/package*.json ./
+RUN npm ci || npm install
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 3: Prepare application files
 FROM node:20-alpine AS build
 WORKDIR /app
 ENV NODE_ENV=production
+# Backend deps
 COPY --from=deps /app/node_modules ./node_modules
-# Copy only necessary files
+# Backend source
 COPY server.js ./
 COPY routes ./routes
 COPY middleware ./middleware
@@ -21,20 +34,19 @@ COPY public ./public
 COPY config ./config
 COPY jwtkey.js ./jwtkey.js
 COPY ai ./ai
-# Optional: Include frontend build if baked in image (compose will build separately too)
-# We keep ability to serve built assets if present
-COPY frontend/package.json ./frontend/package.json
+# Include built frontend assets (if present)
+COPY --from=web /web/dist ./frontend/dist
 
-# Stage 3: Runtime - Distroless base for security
-# Using gcr.io/distroless/nodejs20-debian12 as minimal runtime with node
+# Stage 4: Runtime - Distroless base for security
 FROM gcr.io/distroless/nodejs20-debian12 AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# Cloud Run injects PORT; default to 3000 for local/docker
 ENV PORT=3000
-# Create non-root user (distroless runs as nonroot by default when user is nonroot)
+# Run as non-root (distroless default nonroot user)
 USER nonroot:nonroot
 # Copy app from build stage
 COPY --from=build /app /app
 EXPOSE 3000
-# Healthcheck is defined in docker-compose; Cloud Run will use /health
+# Healthcheck handled by platform; backend exposes /health
 CMD ["server.js"]

@@ -26,10 +26,10 @@ spec:
               value: production
           readinessProbe:
             httpGet:
-              path: /
+              path: /health
               port: 8080
           livenessProbe:
             httpGet:
-              path: /
+              path: /health
               port: 8080
       # Allow unauthenticated will be configured at deploy time in Console

@@ -2,6 +2,13 @@
 # Stage 1: Build static assets
 FROM node:20-alpine AS build
 WORKDIR /app
+
+# Accept API base url at build time so Vite can inline it
+ARG VITE_API_BASE_URL
+ARG VITE_API_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
@@ -10,7 +17,9 @@ RUN npm run build
 # Stage 2: Nginx for static serving
 FROM nginx:1.27-alpine AS runner
 
-# Copy custom nginx config
+# Copy main nginx config that is non-root friendly
+COPY app-deployment/frontend/nginx.main.conf /etc/nginx/nginx.conf
+# Copy server block
 COPY app-deployment/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy build artifacts
