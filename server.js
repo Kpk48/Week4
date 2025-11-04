@@ -17,12 +17,22 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // CORS configuration
+// Support multiple frontend URLs via FRONTEND_URLS (comma-separated) in addition to FRONTEND_URL
+const configuredOrigins = [
+    process.env.FRONTEND_URL,
+    ...(process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',') : [])
+].filter(Boolean);
+
+// Normalize: lowercase and strip trailing slashes
+function normalizeOrigin(o) {
+    return (o || '').toLowerCase().replace(/\/$/, '');
+}
+
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
-    process.env.FRONTEND_URL,
-    // Add your production frontend URL here
-].filter(Boolean);
+    ...configuredOrigins
+].map(normalizeOrigin).filter(Boolean);
 
 const localhostRegex = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
@@ -36,16 +46,23 @@ app.use(cors({
             return callback(null, true);
         }
 
-        // In production: allow explicit list and localhost variants
-        if (allowedOrigins.includes(origin) || localhostRegex.test(origin)) {
+        // In production: allow explicit list, localhost variants, and same-origin
+        const normalizedOrigin = normalizeOrigin(origin);
+        const isLocalhost = localhostRegex.test(origin);
+        const host = (this && this.req ? this.req.get('host') : null) || ''; // fallback if context differs
+        const reqHost = host.toLowerCase();
+        const reqOrigin = reqHost ? `${req.protocol}://${reqHost}` : '';
+        const isSameOrigin = reqOrigin && normalizeOrigin(reqOrigin) === normalizedOrigin;
+
+        if (allowedOrigins.includes(normalizedOrigin) || isLocalhost || isSameOrigin || process.env.ALLOW_ALL_ORIGINS === 'true') {
             return callback(null, true);
         }
 
-        console.log('Blocked by CORS:', origin);
+        console.log('Blocked by CORS:', origin, 'Allowed:', allowedOrigins);
         return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 

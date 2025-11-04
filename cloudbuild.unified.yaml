@@ -7,6 +7,13 @@ substitutions:
   _SERVICE: smart-learning-app
   _REPO: smart-learning
   _IMAGE_NAME: app
+  # Optional: bake API base for SPA (not required for unified mode)
+  _API_BASE_URL: ""
+  # Optional Secret Manager secret names to inject at deploy time
+  _SUPABASE_URL_SECRET: ""
+  _SUPABASE_SERVICE_ROLE_KEY_SECRET: ""
+  _JWT_SECRET_SECRET: ""
+  _GEMINI_API_KEY_SECRET: ""
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -28,16 +35,20 @@ steps:
 
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Build unified image'
+    entrypoint: bash
     args:
-      [
-        'build',
-        '-f','app-deployment/backend/Dockerfile',
-        # Optional: bake API base for SPA (frontend uses relative /api by default when served by Express),
-        # but you can pass a value here if you need to override.
-        # '--build-arg','VITE_API_BASE_URL=${_API_BASE_URL}',
-        '-t','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA',
-        '.'
-      ]
+      - -lc
+      - |
+        set -euo pipefail
+        BUILD_ARGS=()
+        if [ -n "${_API_BASE_URL}" ]; then
+          BUILD_ARGS+=(--build-arg "VITE_API_BASE_URL=${_API_BASE_URL}")
+        fi
+        docker build \
+          -f app-deployment/backend/Dockerfile \
+          "${BUILD_ARGS[@]}" \
+          -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA \
+          .
 
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push image'
@@ -45,20 +56,31 @@ steps:
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'Deploy unified service'
-    entrypoint: gcloud
+    entrypoint: bash
     args:
-      [
-        'run','deploy','${_SERVICE}',
-        '--image','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA',
-        '--region','${_REGION}',
-        '--platform','managed',
-        '--allow-unauthenticated',
-        '--cpu-throttling',
-        '--min-instances','0',
-        '--max-instances','1',
-        '--port','3000',
-        '--set-env-vars','NODE_ENV=production'
-      ]
+      - -lc
+      - |
+        set -euo pipefail
+        IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA"
+        BASE_ENV="NODE_ENV=production"
+        SET_SECRETS=""
+        if [ -n "${_SUPABASE_URL_SECRET}" ] && [ -n "${_SUPABASE_SERVICE_ROLE_KEY_SECRET}" ] && [ -n "${_JWT_SECRET_SECRET}" ]; then
+          SET_SECRETS="--set-secrets=SUPABASE_URL=${_SUPABASE_URL_SECRET}:latest,SUPABASE_SERVICE_ROLE_KEY=${_SUPABASE_SERVICE_ROLE_KEY_SECRET}:latest,JWT_SECRET=${_JWT_SECRET_SECRET}:latest"
+          if [ -n "${_GEMINI_API_KEY_SECRET}" ]; then
+            SET_SECRETS="${SET_SECRETS},GEMINI_API_KEY=${_GEMINI_API_KEY_SECRET}:latest"
+          fi
+        fi
+        gcloud run deploy "${_SERVICE}" \
+          --image="$IMAGE" \
+          --region="${_REGION}" \
+          --platform=managed \
+          --allow-unauthenticated \
+          --cpu-throttling \
+          --min-instances=0 \
+          --max-instances=1 \
+          --port=3000 \
+          --set-env-vars="$BASE_ENV" \
+          ${SET_SECRETS}
 
 images:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE_NAME}:$SHORT_SHA'

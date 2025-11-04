@@ -42,6 +42,8 @@ Production Build & Serve
 Environment Variables (.env)
 - PORT=3000
 - FRONTEND_URL=http://localhost:5173 (optional in dev; CORS allow-list already includes 5173)
+- FRONTEND_URLS=<comma-separated list of allowed frontend origins> (optional; e.g., https://your-frontend.a.run.app,https://admin.yourdomain.com)
+- ALLOW_ALL_ORIGINS=true (optional; for emergencies/testing only; allows any origin in production)
 - SUPABASE_URL=... (required)
 - SUPABASE_SERVICE_ROLE_KEY=... (or appropriate anon/service key depending on your setup)
 - JWT_SECRET=... (used by middleware/auth)
